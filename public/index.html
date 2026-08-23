@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PCO · Ananya</title>
+  <style>
+    :root {
+      --wood: #1c1710;
+      --wood2: #2a2218;
+      --ticket: #f3ead4;
+      --ink: #1a140c;
+      --mute: #6a5d4a;
+      --line: #c9b896;
+      --sign: #ffe14a;
+      --stamp: #c41e3a;
+      --ok: #1f7a45;
+      --warm: #c46a12;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      background:
+        radial-gradient(1200px 500px at 50% -10%, #3a3024, transparent 55%),
+        repeating-linear-gradient(90deg, #1a1510 0 2px, #1c1710 2px 14px);
+      color: var(--ticket);
+      font-family: "Iowan Old Style", Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    }
+    main { max-width: 980px; margin: 0 auto; padding: 28px 18px 72px; }
+    .sign {
+      background: var(--sign);
+      color: #111;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      padding: 10px 16px;
+      letter-spacing: 0.18em;
+      font-weight: 700;
+      font-size: 13px;
+      box-shadow: 0 8px 0 #111;
+    }
+    .sign small { letter-spacing: 0.04em; font-weight: 500; font-size: 12px; }
+    h1 {
+      font-size: 34px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      margin: 22px 0 6px;
+      color: var(--sign);
+    }
+    .lede { color: #cbb894; margin: 0 0 22px; max-width: 38em; line-height: 1.45; }
+    .grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 14px; }
+    @media (max-width: 840px) { .grid { grid-template-columns: 1fr; } h1 { font-size: 28px; } }
+    .booth {
+      background: var(--ticket);
+      color: var(--ink);
+      border: 1px solid #111;
+      box-shadow: 6px 6px 0 #0a0806;
+      padding: 18px;
+    }
+    .booth h2 {
+      font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      margin: 0 0 12px;
+      color: var(--mute);
+    }
+    button {
+      appearance: none;
+      border: 1px solid #111;
+      background: #111;
+      color: var(--sign);
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 650;
+      padding: 13px 14px;
+      cursor: pointer;
+      width: 100%;
+    }
+    button:active { transform: translate(1px, 1px); }
+    .ghost {
+      background: transparent;
+      color: var(--ink);
+      margin-top: 8px;
+    }
+    label {
+      display: block;
+      margin: 14px 0 6px;
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--mute);
+    }
+    input {
+      width: 100%;
+      border: 0;
+      border-bottom: 1px dotted #111;
+      background: transparent;
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 16px;
+      padding: 6px 0;
+    }
+    input:focus { outline: none; border-bottom-style: solid; }
+    .meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .lamp {
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 11px;
+      padding: 3px 8px;
+      border: 1px solid var(--line);
+      color: var(--mute);
+    }
+    .lamp.on { color: var(--ok); border-color: var(--ok); }
+    .lamp.live { color: var(--stamp); border-color: var(--stamp); animation: blink 1.1s steps(2) infinite; }
+    @keyframes blink { 50% { opacity: 0.35; } }
+    .status { margin: 10px 0 0; font-size: 14px; color: #3d3428; }
+    .qr-wrap { background: #fff; padding: 10px; border: 1px solid #111; display: inline-block; }
+    img.qr { width: 200px; height: 200px; display: block; }
+    .hint { font-size: 13px; color: var(--mute); margin: 0 0 10px; line-height: 1.4; }
+    .slip {
+      margin-top: 14px;
+      background: var(--ticket);
+      color: var(--ink);
+      border: 1px solid #111;
+      box-shadow: 6px 6px 0 #0a0806;
+      padding: 18px 18px 12px;
+      position: relative;
+    }
+    .stamp {
+      position: absolute;
+      right: 18px;
+      top: 14px;
+      border: 3px solid var(--stamp);
+      color: var(--stamp);
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      padding: 4px 10px;
+      transform: rotate(8deg);
+      font-size: 18px;
+      opacity: 0;
+    }
+    .stamp.show { opacity: 0.92; }
+    .stamp.warm { border-color: var(--warm); color: var(--warm); }
+    .stamp.cold { border-color: #555; color: #555; }
+    .dots { margin: 0; padding: 0; list-style: none; }
+    .dots li {
+      display: grid;
+      grid-template-columns: 7.5rem 1fr;
+      gap: 10px;
+      border-bottom: 1px dotted var(--line);
+      padding: 7px 0;
+      font-size: 16px;
+    }
+    .dots span { color: var(--mute); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; padding-top: 4px; }
+    .quote {
+      margin: 16px 0 8px;
+      font-style: italic;
+      font-size: 22px;
+      line-height: 1.25;
+      max-width: 28ch;
+    }
+    .fest { font-size: 13px; color: #4a3c28; margin: 8px 0 0; }
+    .tape {
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      color: #3d3428;
+      margin: 14px 0 0;
+      max-height: 180px;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="sign"><span>STD · ISD · PCO</span><small>Ananya on the trunk · Saksham Bansal</small></div>
+    <h1>Lift the handset.</h1>
+    <p class="lede">She opens in the mix people actually answer — then stays in Telugu, Hindi, or English. High intent gets a call slip on WhatsApp while they’re still holding the phone, plus a contact they can save. Hangup does not send a second brochure.</p>
+    <div class="grid">
+      <section class="booth">
+        <h2>Local board</h2>
+        <button id="callLead">Connect 86886 64337</button>
+        <button class="ghost" id="callMe">Ring my phone first</button>
+        <label>Another number</label>
+        <input id="custom" placeholder="93546 32052" />
+        <button class="ghost" id="callCustom">Connect this line</button>
+        <p class="status" id="callStatus">Handset down.</p>
+        <div class="meta">
+          <span class="lamp" id="lineLamp">line</span>
+          <span class="lamp" id="waLamp">whatsapp</span>
+        </div>
+      </section>
+      <section class="booth">
+        <h2>Linked device</h2>
+        <p class="hint">WhatsApp → Linked devices. Mid-call slip cannot leave until this lamp is green.</p>
+        <div class="qr-wrap"><img class="qr" id="qr" alt="WhatsApp QR" /></div>
+        <p class="status" id="waErr"></p>
+      </section>
+    </div>
+    <section class="slip">
+      <h2 style="font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);margin:0 0 8px">Call slip</h2>
+      <div class="stamp" id="stamp">HOT</div>
+      <ul class="dots" id="slots"></ul>
+      <p class="quote" id="quote">waiting for the trunk.</p>
+      <p class="fest" id="fest"></p>
+      <div class="tape" id="tape"></div>
+    </section>
+  </main>
+  <script>
+    const SLOT_LABELS = [
+      ["sells", "sells"],
+      ["pieces", "pieces"],
+      ["liveBy", "live by"],
+      ["budget", "budget"],
+      ["asked", "asked for"],
+      ["holdUp", "hold-up"],
+    ];
+    function pretty(n) {
+      const d = String(n || "").replace(/\D/g, "");
+      if (d.startsWith("91") && d.length === 12) return "+91 " + d.slice(2, 7) + " " + d.slice(7);
+      return n || "—";
+    }
+    function clock(iso) {
+      if (!iso) return "";
+      try {
+        return new Date(iso).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
+      } catch { return ""; }
+    }
+    function humanEvent(e) {
+      const t = clock(e.at);
+      const map = {
+        dial: "trunk",
+        dial_fail: "no ring",
+        classify: "slip",
+        whatsapp_mid: "telegram out",
+        whatsapp_followup: "telegram out",
+        whatsapp_skip: "telegram held",
+        callback: "redial booked",
+        call_end: "handset down",
+      };
+      return (t ? t + "  " : "") + (map[e.type] || e.type) + (e.detail ? " · " + e.detail : "");
+    }
+    function slots(slip, latest) {
+      const rows = SLOT_LABELS.map(([key, label]) => {
+        const v = (slip && slip[key]) || "················";
+        return `<li><span>${label}</span><div>${v}</div></li>`;
+      });
+      if (latest?.to) rows.unshift(`<li><span>called</span><div>${pretty(latest.to)}</div></li>`);
+      if (latest?.callbackAt) rows.push(`<li><span>redial</span><div>${clock(latest.callbackAt)} IST</div></li>`);
+      return rows.join("");
+    }
+    async function refresh() {
+      const s = await fetch("/api/status").then((r) => r.json());
+      const live = s.latest && (s.latest.status === "dialing" || s.latest.status === "in_progress");
+      const line = document.getElementById("lineLamp");
+      line.textContent = s.omnidim ? (live ? "line live" : "omnidim") : "no trunk";
+      line.className = "lamp" + (live ? " live" : s.omnidim ? " on" : "");
+      const wa = document.getElementById("waLamp");
+      wa.textContent = "whatsapp " + s.whatsapp.status;
+      wa.className = "lamp" + (s.whatsapp.status === "ready" ? " on" : "");
+      if (s.whatsapp.qr) document.getElementById("qr").src = s.whatsapp.qr;
+      document.getElementById("waErr").textContent = s.whatsapp.error || "";
+      const slip = s.slip;
+      const stamp = document.getElementById("stamp");
+      if (slip?.heat) {
+        stamp.textContent = slip.heat.toUpperCase();
+        stamp.className = "stamp show" + (slip.heat === "warm" ? " warm" : slip.heat === "cold" ? " cold" : "");
+      } else {
+        stamp.className = "stamp";
+      }
+      document.getElementById("slots").innerHTML = slots(slip, s.latest);
+      document.getElementById("quote").textContent = slip?.said
+        ? "“" + slip.said + "”"
+        : live
+          ? "on the line."
+          : "waiting for the trunk.";
+      document.getElementById("fest").textContent = slip?.festival || "";
+      document.getElementById("tape").textContent = (s.events || []).slice(0, 12).map(humanEvent).join("\n") || "no tape yet";
+    }
+    async function call(payload) {
+      document.getElementById("callStatus").textContent = "Ringing…";
+      const res = await fetch("/api/call", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await res.json();
+      document.getElementById("callStatus").textContent = data.ok ? "Trunk connected. She’ll speak." : (data.error || "No ring.");
+      refresh();
+    }
+    document.getElementById("callLead").onclick = () => call({});
+    document.getElementById("callMe").onclick = () => call({ test: true });
+    document.getElementById("callCustom").onclick = () => call({ to: document.getElementById("custom").value });
+    refresh();
+    setInterval(refresh, 2000);
+  </script>
+</body>
+</html>
