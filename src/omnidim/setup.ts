@@ -5,6 +5,7 @@ import type { CustomApiIntegrationInput, IntegrationParam } from "@omnidim-ai/sd
 import { config } from "../config.ts";
 import { omnidim } from "./client.ts";
 import { contextBreakdown, welcomeMessage } from "./prompt.ts";
+import { indiaVoice } from "./voice.ts";
 
 const QUAL: IntegrationParam[] = [
   { key: "classification", description: "hot, warm, or cold based on buying intent, not politeness", type: "string", required: true },
@@ -35,20 +36,8 @@ function writeAgentId(id: string) {
   writeFileSync(path, env);
 }
 
-async function pickVoice(client: ReturnType<typeof omnidim>) {
-  try {
-    const { voices } = await client.providers.listVoices({
-      provider: "eleven_labs",
-      gender: "female",
-      language: "hi",
-      page_size: 20,
-    });
-    const first = voices?.[0];
-    if (first?.name) return { provider: "eleven_labs" as const, voice_id: first.name, speech_speed: 1 };
-  } catch {
-    /* default */
-  }
-  return { provider: "eleven_labs" as const, voice_id: "EXAVITQu4vr4xnSDxMaL", speech_speed: 1 };
+async function pickVoice(_client: ReturnType<typeof omnidim>) {
+  return { ...indiaVoice.voice };
 }
 
 function integrationId(res: Record<string, unknown>): number | undefined {
@@ -67,17 +56,33 @@ async function main() {
   const voice = await pickVoice(client);
 
   if (process.argv.includes("--update") && config.agentId) {
-    const updated = await client.agents.update(Number(config.agentId), {
+    const payload = {
       name: "Saksham Ecom Sales — Ananya",
       welcome_message: welcomeMessage,
       is_welcome_message_dynamic: false,
       is_welcome_message_interruption: true,
       is_interruption_allowed: true,
       context_breakdown: contextBreakdown(),
-      model: { model: "gpt-4.1-mini", temperature: 0.5 },
-    } as never);
-    console.log("Updated agent", config.agentId, updated);
-    return;
+      model: { model: "gpt-4.1-mini", temperature: 0.35 },
+      voice: indiaVoice.voice,
+      transcriber: indiaVoice.transcriber,
+      background_track: indiaVoice.background_track,
+      languages: ["English (India)", "Hindi", "Telugu"],
+    };
+    try {
+      const updated = await client.agents.update(Number(config.agentId), payload as never);
+      console.log("Updated agent", config.agentId, updated, indiaVoice.voice);
+      return;
+    } catch (err) {
+      const fallback = {
+        ...payload,
+        transcriber: { ...indiaVoice.transcriber, language: "hi-IN" },
+      };
+      const updated = await client.agents.update(Number(config.agentId), fallback as never);
+      console.log("Updated agent (hi-IN STT)", config.agentId, updated, indiaVoice.voice);
+      console.warn("unknown language rejected:", err instanceof Error ? err.message : err);
+      return;
+    }
   }
 
   const agent = await client.agents.create({
@@ -89,17 +94,10 @@ async function main() {
     is_interruption_allowed: true,
     call_type: "Outgoing",
     context_breakdown: contextBreakdown(),
-    transcriber: {
-      provider: "soniox",
-      language: "en-IN",
-      silence_timeout_ms: 400,
-      interruption_min_words: 2,
-      max_call_duration_in_sec: 420,
-      should_apply_noise_reduction: true,
-    },
+    transcriber: indiaVoice.transcriber,
     model: { model: "gpt-4.1-mini", temperature: 0.35 },
     voice,
-    background_track: { enabled: true, name: "office", volume: 0.15 },
+    background_track: indiaVoice.background_track,
     languages: ["English (India)", "Hindi", "Telugu"],
     end_call: {
       enabled: true,

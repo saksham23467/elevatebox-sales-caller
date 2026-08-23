@@ -19,7 +19,7 @@ import {
   type ToolBody,
 } from "./tools/handlers.ts";
 import { startWhatsApp, whatsappStatus } from "./whatsapp/client.ts";
-import { callSlip } from "./whatsapp/copy.ts";
+import { callSlip, followUpMessage, midCallMessage } from "./whatsapp/copy.ts";
 
 const app = Fastify({ logger: true });
 
@@ -44,6 +44,7 @@ app.get("/api/status", async () => {
     ok: true,
     lead: config.leadPhone,
     candidate: config.candidatePhone,
+    candidateName: config.candidateName,
     publicUrl: config.publicUrl,
     omnidim: Boolean(config.omnidimKey && config.agentId),
     agentId: config.agentId || null,
@@ -58,9 +59,33 @@ app.get("/api/status", async () => {
     whatsapp: whatsappStatus(),
     latest,
     slip: latest?.qualification ? callSlip(latest.qualification) : null,
+    packet: packetPreview(latest),
+    recent: store.all().calls.slice(0, 8).map((c) => ({
+      to: c.to,
+      status: c.status,
+      classification: c.classification,
+      at: c.createdAt,
+      wa: Boolean(c.whatsappMidSentAt || c.whatsappFollowupSentAt),
+    })),
     events: store.all().events.slice(0, 25),
   };
 });
+
+function packetPreview(latest: ReturnType<typeof store.latestCall>) {
+  const q = latest?.qualification;
+  if (!latest || !q) return null;
+  const mid = Boolean(latest.whatsappMidSentAt);
+  return {
+    kind: mid ? "mid" : latest.whatsappFollowupSentAt ? "followup" : "draft",
+    sent: Boolean(latest.whatsappMidSentAt || latest.whatsappFollowupSentAt),
+    text: mid
+      ? midCallMessage(q)
+      : followUpMessage(q, {
+          callbackAt: latest.callbackAt ? new Date(latest.callbackAt) : undefined,
+          midCallAlready: mid,
+        }),
+  };
+}
 
 app.post("/api/call", async (req, reply) => {
   const body = (req.body ?? {}) as { to?: string; test?: boolean };
