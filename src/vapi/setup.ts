@@ -62,6 +62,18 @@ async function main() {
     if (chosen?.id) {
       setEnv("VAPI_PHONE_NUMBER_ID", chosen.id);
       console.log("Wrote VAPI_PHONE_NUMBER_ID", chosen.id, chosen.number ?? "");
+      for (const n of numbers) {
+        if (!n.id) continue;
+        try {
+          await vapi(`/phone-number/${n.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ assistantId: assistant.id }),
+          });
+          console.log("inbound assistant on", n.number ?? n.id);
+        } catch (err) {
+          console.warn("could not attach inbound assistant", n.id, err instanceof Error ? err.message : err);
+        }
+      }
       if (!chosen.number || chosen.number.startsWith("+1")) {
         console.warn(
           "Free Vapi numbers are US-only and cannot dial +91. Import a Twilio/Exotel/Telnyx number with India calling, then set VAPI_PHONE_NUMBER_ID.",

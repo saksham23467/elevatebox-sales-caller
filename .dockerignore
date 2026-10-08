@@ -1,0 +1,9 @@
+node_modules
+data
+whatsapp-auth
+.env
+.git
+*.log
+.DS_Store
+.cache
+agent-transcripts

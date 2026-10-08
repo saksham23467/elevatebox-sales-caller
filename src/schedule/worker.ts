@@ -1,14 +1,18 @@
-import { config } from "../config.ts";
+import { placeOutboundCall } from "../adapters/telephony.ts";
+import { canDial } from "../compliance/calling.ts";
 import { store } from "../store.ts";
-import { placeOutboundCall } from "../vapi/placeCall.ts";
 
 export function startCallbackWorker() {
   setInterval(async () => {
     const due = store.dueCallbacks();
     for (const call of due) {
+      if (!canDial({ phone: call.to }).ok) {
+        store.log("callback_skip", `outside hours or DND ${call.to}`, call.id);
+        continue;
+      }
       store.log("callback_dispatch", `redialing ${call.to}`, call.id);
       try {
-        store.upsertCall({ id: `${call.id}-cb-${Date.now()}`, to: call.to, status: "dialing" });
+        store.upsertCall({ id: `${call.id}-cb-${Date.now()}`, to: call.to, status: "dialing", direction: "outbound" });
         await placeOutboundCall(call.to, {
           is_callback: "true",
           previous_notes: JSON.stringify(call.qualification ?? {}),

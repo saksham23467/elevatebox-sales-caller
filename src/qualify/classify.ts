@@ -12,6 +12,10 @@ export type Qualification = {
   barrier?: string;
   quotes: string[];
   language?: string;
+  bhk?: string;
+  locality?: string;
+  endUse?: string;
+  visitAt?: string;
 };
 
 const HOT = [
@@ -78,14 +82,37 @@ function salvageQuotes(utterances: string | undefined): string[] {
     .slice(0, 3);
 }
 
-function guessLang(blob: string, hinted?: string): Qualification["language"] {
-  const h = (hinted ?? "").toLowerCase();
-  if (h.startsWith("te") || h.includes("telugu")) return "te";
-  if (h.startsWith("hi") || h.includes("hindi")) return "hi";
-  if (h.startsWith("en") || h.includes("english")) return "en";
-  if (/[\u0C00-\u0C7F]/.test(blob) || /\b(undi|pampandi|cheyandi|avunu|kadhu|meeru|repu)\b/i.test(blob)) return "te";
-  if (/[\u0900-\u097F]/.test(blob) || /\b(hai|haan|kya|bhej|theek|accha|nahi|kal)\b/i.test(blob)) return "hi";
-  return undefined;
+const HI_ROMAN =
+  /\b(hai|haan|haanji|kya|kyaa|bhej|bhejo|bhejdo|theek|accha|acha|nahi|nahin|kal|subah|aap|tum|main|hum|karo|karna|chahiye|kitna|kaise|kyun|mat|bas|sahi|bilkul|abhi|baad|pehle|wala|wali|bolo|sun|dekho|zarurat|theekhai)\b/gi;
+const TE_ROMAN =
+  /\b(undi|unnadi|pampandi|cheyandi|avunu|kadhu|kaadu|meeru|nenu|repu|ela|enti|cheppu|cheppandi|sare|avuna|ledu|kavali|ippudu|tarvata|mundu|cheyali|pampistunnanu)\b/gi;
+const EN_ROMAN =
+  /\b(the|and|you|your|what|how|when|yes|yeah|okay|please|want|need|can|will|just|about|this|that|have|don't|not|got|two|minutes|website|shop|calling)\b/gi;
+
+function countRe(text: string, re: RegExp): number {
+  return text.match(re)?.length ?? 0;
+}
+
+/** Majority language by words/script. Tie or empty → English. */
+export function detectDominantLanguage(parts: Array<string | undefined>, hinted?: string): "en" | "hi" | "te" {
+  const blob = parts.filter(Boolean).join("\n");
+  const teScript = (blob.match(/[\u0C00-\u0C7F]/g) ?? []).length / 3;
+  const hiScript = (blob.match(/[\u0900-\u097F]/g) ?? []).length / 3;
+  const te = teScript + countRe(blob, TE_ROMAN);
+  const hi = hiScript + countRe(blob, HI_ROMAN);
+  const en = countRe(blob, EN_ROMAN);
+  const hint = (hinted ?? "").toLowerCase();
+  const bonus = 1.2;
+  const scores = {
+    te: te + (hint.startsWith("te") || hint.includes("telugu") ? bonus : 0),
+    hi: hi + (hint.startsWith("hi") || hint.includes("hindi") ? bonus : 0),
+    en: en + (hint.startsWith("en") || hint.includes("english") ? bonus : 0),
+  };
+  const max = Math.max(scores.en, scores.hi, scores.te);
+  if (max <= 0) return "en";
+  const winners = (["en", "hi", "te"] as const).filter((k) => scores[k] === max);
+  if (winners.length !== 1) return "en";
+  return winners[0];
 }
 
 export function classifyLead(input: {
@@ -99,6 +126,9 @@ export function classifyLead(input: {
   quotes?: string[];
   askedForDetails?: boolean | string;
   language?: string;
+  bhk?: string;
+  locality?: string;
+  endUse?: string;
 }): Qualification {
   const blob = [
     input.utterances,
@@ -162,7 +192,10 @@ export function classifyLead(input: {
     features: input.features?.trim() || undefined,
     barrier: input.barrier?.trim() || undefined,
     quotes: quotes.slice(0, 6),
-    language: guessLang(blob, input.language),
+    language: detectDominantLanguage([input.utterances, ...quotes], input.language),
+    bhk: input.bhk?.trim() || undefined,
+    locality: input.locality?.trim() || undefined,
+    endUse: input.endUse?.trim() || undefined,
   };
 }
 

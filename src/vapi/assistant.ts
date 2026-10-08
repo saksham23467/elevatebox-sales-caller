@@ -1,32 +1,28 @@
 import { config } from "../config.ts";
-import { systemPrompt, welcomeMessage } from "../omnidim/prompt.ts";
-
-const qualProps = {
-  classification: { type: "string", description: "hot, warm, or cold from buying intent, not politeness" },
-  quotes: { type: "string", description: "verbatim phrases the lead said, separated by |" },
-  budget: { type: "string", description: "budget they mentioned" },
-  products: { type: "string", description: "what they sell" },
-  catalog_size: { type: "string", description: "how many products if mentioned" },
-  timeline: { type: "string", description: "when they need the site live" },
-  features: { type: "string", description: "features they asked for" },
-  barrier: { type: "string", description: "why they cannot buy now, if any" },
-  language: { type: "string", description: "en, hi, or te" },
-};
+import { pack } from "../packs/active.ts";
 
 export function assistantConfig() {
+  const vertical = pack();
+  const qualProps = Object.fromEntries(
+    vertical.toolQual.map((p) => [p.key, { type: p.type, description: p.description }]),
+  );
   const server = {
     url: `${config.publicUrl}/webhooks/vapi`,
     timeoutSeconds: 20,
     secret: config.toolSecret,
   };
   return {
-    name: "Saksham Ecom Sales — Ananya",
-    firstMessage: welcomeMessage,
+    name: vertical.agentTitle,
+    firstMessage: vertical.welcomeMessage,
     firstMessageInterruptionsEnabled: true,
     backgroundSound: "office",
-    silenceTimeoutSeconds: 30,
-    maxDurationSeconds: 420,
+    silenceTimeoutSeconds: 8,
+    maxDurationSeconds: 240,
     endCallPhrases: ["goodbye", "bye", "that's all"],
+    voicemailDetection: {
+      provider: "vapi",
+      backoffPlan: { startAtSeconds: 1.5, frequencySeconds: 2.5, maxRetries: 8 },
+    },
     transcriber: {
       provider: "deepgram",
       model: "nova-3",
@@ -40,13 +36,13 @@ export function assistantConfig() {
     },
     model: {
       provider: "openai",
-      model: "gpt-4o",
-      temperature: 0.35,
-      messages: [{ role: "system", content: systemPrompt() }],
+      model: "gpt-4o-mini",
+      temperature: 0.3,
+      messages: [{ role: "system", content: vertical.systemPrompt() }],
       tools: [
         {
           type: "function",
-          async: false,
+          async: true,
           function: {
             name: "classify_lead",
             description: "Call as soon as you can tell hot, warm, or cold. Pass their actual words in quotes.",
@@ -63,7 +59,7 @@ export function assistantConfig() {
           function: {
             name: "send_whatsapp",
             description:
-              "Fire DURING the call when intent is HOT or they asked for details. Do not wait until hangup. Then confirm out loud that WhatsApp is going out.",
+              "Call when the lead is HOT or asked for details. Sends WhatsApp (text + contact, no resume) then keep talking.",
             parameters: {
               type: "object",
               properties: qualProps,
@@ -89,6 +85,14 @@ export function assistantConfig() {
           },
         },
         { type: "endCall" },
+        {
+          type: "voicemail",
+          function: {
+            name: "end_on_voicemail",
+            description: "Silently end the call when you hear voicemail or an answering machine. Do not leave a message.",
+          },
+          messages: [],
+        },
       ],
     },
     server,

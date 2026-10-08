@@ -5,7 +5,7 @@ import makeWASocket, {
   useMultiFileAuthState,
   type WASocket,
 } from "@whiskeysockets/baileys";
-import { mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import qrcode from "qrcode";
 import pino from "pino";
@@ -14,13 +14,28 @@ import type { Lang } from "./copy.ts";
 
 const log = pino({ level: "info" }).child({ mod: "whatsapp" });
 
+process.on("unhandledRejection", (err) => {
+  log.error({ err }, "WhatsApp promise rejected — keeping the dashboard up");
+});
+process.on("uncaughtException", (err) => {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/Connection Closed|Timed Out|Socket closed|Stream Errored/i.test(msg)) {
+    log.error({ err }, "WhatsApp socket died — reconnecting");
+    sock = null;
+    status = "starting";
+    setTimeout(() => connect().catch((e) => log.error(e)), 2000);
+    return;
+  }
+  throw err;
+});
+
 let sock: WASocket | null = null;
 let lastQr: string | null = null;
 let status: "starting" | "qr" | "ready" | "logged_out" = "starting";
 let lastError: string | null = null;
 const lastPacketAt = new Map<string, number>();
 const inflight = new Set<string>();
-const DEDUPE_MS = 8 * 60 * 1000;
+const DEDUPE_MS = 90 * 1000;
 
 function jid(phone: string): string {
   const e164 = toE164(phone).replace("+", "");
@@ -43,6 +58,7 @@ async function connect() {
     if (qr) {
       lastQr = await qrcode.toDataURL(qr);
       status = "qr";
+      lastError = null;
       log.info("WhatsApp QR ready — scan from the dashboard");
     }
     if (connection === "open") {
@@ -57,6 +73,10 @@ async function connect() {
         status = "logged_out";
         lastError = "WhatsApp logged out. Scan QR again.";
         sock = null;
+        const dir = fileURLToPath(paths.waAuth);
+        rmSync(dir, { recursive: true, force: true });
+        mkdirSync(dir, { recursive: true });
+        setTimeout(() => connect().catch((err) => log.error(err)), 800);
         return;
       }
       status = "starting";
@@ -66,27 +86,58 @@ async function connect() {
 }
 
 export function whatsappStatus() {
-  return { status, qr: lastQr, error: lastError };
+  return { status, qr: lastQr, error: lastError, me: linkedNumber() };
+}
+
+function linkedNumber(): string | null {
+  const id = sock?.user?.id;
+  if (!id) return null;
+  const digits = id.split(":")[0]?.replace(/\D/g, "") ?? "";
+  return digits.length >= 10 ? `+${digits}` : null;
 }
 
 export async function startWhatsApp() {
   if (!sock) await connect();
 }
 
+export async function logoutWhatsApp() {
+  try {
+    await sock?.logout();
+  } catch {
+    /* already dead */
+  }
+  sock = null;
+  lastQr = null;
+  lastError = null;
+  lastPacketAt.clear();
+  inflight.clear();
+  status = "starting";
+  const dir = fileURLToPath(paths.waAuth);
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  await connect();
+  return whatsappStatus();
+}
+
 export async function sendWhatsApp(opts: {
   to: string;
   text: string;
-  includeResume?: boolean;
   includeArchitecture?: boolean;
   lang?: Lang;
-}): Promise<{ ok: boolean; error?: string }> {
+  force?: boolean;
+}): Promise<{ ok: boolean; sent?: boolean; error?: string }> {
   if (!sock || status !== "ready") {
-    return { ok: false, error: `WhatsApp not ready (${status})` };
+    return { ok: false, sent: false, error: `WhatsApp not ready (${status})` };
+  }
+  const mine = linkedNumber();
+  const dest = toE164(opts.to);
+  if (mine && dest && mine.replace(/\D/g, "") === dest.replace(/\D/g, "")) {
+    log.warn({ dest }, "WhatsApp session is this same number — self-chat often does not show");
   }
   const to = jid(opts.to);
-  if (inflight.has(to) || Date.now() - (lastPacketAt.get(to) ?? 0) < DEDUPE_MS) {
+  if (!opts.force && (inflight.has(to) || Date.now() - (lastPacketAt.get(to) ?? 0) < DEDUPE_MS)) {
     log.info({ to }, "WhatsApp skipped — already sent to this number");
-    return { ok: true };
+    return { ok: true, sent: false, error: "already_sent" };
   }
   inflight.add(to);
   try {
@@ -113,20 +164,12 @@ export async function sendWhatsApp(opts: {
         caption: cap,
       });
     }
-    if (opts.includeResume) {
-      await sock.sendMessage(to, {
-        document: readFileSync(fileURLToPath(paths.resume)),
-        mimetype: "application/pdf",
-        fileName: "Saksham_Bansal_Resume.pdf",
-        caption: config.candidateName,
-      });
-    }
     lastPacketAt.set(to, Date.now());
-    return { ok: true };
+    return { ok: true, sent: true };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
     log.error({ error }, "WhatsApp send failed");
-    return { ok: false, error };
+    return { ok: false, sent: false, error };
   } finally {
     inflight.delete(to);
   }

@@ -1,5 +1,5 @@
 import { config } from "../config.ts";
-import type { Qualification } from "../qualify/classify.ts";
+import { detectDominantLanguage, type Qualification } from "../qualify/classify.ts";
 import { formatIst } from "../schedule/parseTime.ts";
 
 export type Lang = "en" | "hi" | "te";
@@ -18,14 +18,10 @@ export type CallSlip = {
 };
 
 export function langOf(q: Qualification): Lang {
-  const hinted = (q.language ?? "").toLowerCase();
-  if (hinted.startsWith("te") || hinted.includes("telugu")) return "te";
-  if (hinted.startsWith("hi") || hinted.includes("hindi")) return "hi";
-  if (hinted.startsWith("en") || hinted.includes("english")) return "en";
-  const blob = [q.quotes.join(" "), q.products, q.barrier, q.features, q.timeline].filter(Boolean).join("\n");
-  if (/[\u0C00-\u0C7F]/.test(blob) || /\b(undi|pampandi|cheyandi|avunu|kadhu|meeru|repu)\b/i.test(blob)) return "te";
-  if (/[\u0900-\u097F]/.test(blob) || /\b(hai|haan|kya|bhej|theek|accha|nahi|kal)\b/i.test(blob)) return "hi";
-  return "en";
+  return detectDominantLanguage(
+    [q.quotes.join(" "), q.products, q.barrier, q.features, q.timeline, q.budget],
+    q.language,
+  );
 }
 
 function festivalNote(timeline: string | undefined, lang: Lang): string | undefined {
@@ -119,14 +115,14 @@ export function midCallMessage(q: Qualification): string {
         : "still on the line — putting this on WhatsApp, glance at your phone";
   const close =
     lang === "hi"
-      ? `${config.candidateName}  ${config.candidatePhone}\ncontact save kar lo. resume + is call ka diagram laga diya.`
+      ? `${config.candidateName}  ${config.candidatePhone}\ncontact save kar lo.`
       : lang === "te"
-        ? `${config.candidateName}  ${config.candidatePhone}\ncontact save chesukondi. resume + ee call diagram pettanu.`
-        : `${config.candidateName}  ${config.candidatePhone}\nsave the contact. resume + how this call was built are attached.`;
+        ? `${config.candidateName}  ${config.candidatePhone}\ncontact save chesukondi.`
+        : `${config.candidateName}  ${config.candidatePhone}\nsave the contact.`;
   return [open, "", ...facts(lang, slip), saidLine(lang, slip.said), slip.festival, "", close].filter((x) => x !== null && x !== undefined).join("\n");
 }
 
-export function followUpMessage(q: Qualification, extra?: { callbackAt?: Date; midCallAlready?: boolean }): string {
+export function followUpMessage(q: Qualification, extra?: { callbackAt?: Date; visitAt?: Date; midCallAlready?: boolean }): string {
   const slip = callSlip(q);
   const lang = slip.lang;
   if (extra?.midCallAlready) {
@@ -176,7 +172,6 @@ export function followUpMessage(q: Qualification, extra?: { callbackAt?: Date; m
     "",
     `${config.candidateName}`,
     config.candidatePhone,
-    lang === "hi" ? "resume attached." : lang === "te" ? "resume pettanu." : "resume attached.",
   ]
     .filter((x) => x !== null && x !== undefined)
     .join("\n");

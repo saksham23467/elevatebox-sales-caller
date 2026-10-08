@@ -62,6 +62,24 @@ export async function dispatchVapiCall(opts: { to: string; assistantId: string; 
   });
 }
 
+export async function hangupVapiCall(callId: string) {
+  const errors: string[] = [];
+  try {
+    return await vapi(`/call/${callId}/end`, { method: "POST" });
+  } catch (err) {
+    errors.push(err instanceof Error ? err.message : String(err));
+  }
+  try {
+    return await vapi(`/call/${callId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "ended" }),
+    });
+  } catch (err) {
+    errors.push(err instanceof Error ? err.message : String(err));
+  }
+  throw new Error(`Vapi hangup failed: ${errors.join(" | ")}`);
+}
+
 export async function probeVapi(): Promise<{
   ok: boolean;
   error?: string;
